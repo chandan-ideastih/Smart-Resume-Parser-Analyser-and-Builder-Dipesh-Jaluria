@@ -22,6 +22,16 @@ An AI-powered web application that extracts key information from resume PDFs and
 
 ---
 
+## 📸 Screenshots
+
+### 1. Resume Parsing & Skills Extraction
+![Resume Parser](assets/runningapp1.png)
+
+### 2. ATS Match Scoring & Recommendations
+![ATS Match Scoring](assets/runningapp2.png)
+
+---
+
 ## 🛠️ Tech Stack
 * **Frontend UI**: [Streamlit](https://streamlit.io/) (Python-based dashboard framework)
 * **LLM Engine**: [Google Generative AI SDK](https://aistudio.google.com/) (Gemini 2.5 Flash)

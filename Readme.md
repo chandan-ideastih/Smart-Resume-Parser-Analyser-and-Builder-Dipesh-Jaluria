@@ -1,28 +1,71 @@
-# 📄 Smart Resume Parser & Analyzer
+# Smart Resume AI Parser & Analyzer 📄🤖
 
-An AI-powered web application built with Streamlit that extracts text from resumes (PDFs) and uses Google's Gemini AI to parse the unstructured data into structured JSON. It also features an Applicant Tracking System (ATS) module to compare the parsed resume against a target job description, providing a match score and actionable feedback.
+An AI-powered web application that extracts key information from resume PDFs and compares them against target job descriptions using Google Gemini LLMs. It features semantic parsing, structured data extraction, and deep ATS (Applicant Tracking System) matching metrics.
+
+---
 
 ## 🚀 Features
 
-* **PDF Text Extraction:** Reads and extracts raw text from uploaded resume PDFs using `PyPDF2`.
-* **Intelligent AI Parsing:** Uses `gemini-2.5-flash` to convert raw resume text into structured JSON format (Personal Info, Education, Experience, Skills).
-* **ATS Match Scoring:** Analyzes the structured resume against a user-provided job description to calculate a compatibility percentage.
-* **Skill Gap Analysis:** Highlights exact matching skills and identifies critical missing keywords.
-* **Actionable Insights:** Provides AI-driven recommendations to improve the resume for the specific role.
+### 1. Resume Parser & Extractor
+* **PDF Text Extraction**: Uses `PyPDF2` to read raw text from multi-page PDFs.
+* **Semantic parsing**: Leverages `gemini-2.5-flash` to extract unstructured details into clean, structured JSON containing:
+  * **Personal Information**: Name, Email, Phone
+  * **Education**: Degree, Institution, Graduation Year
+  * **Experience**: Job role, Company, Duration, Description
+  * **Skills**: Key professional tags
+* **Skills Visualization**: Automatically displays skills in a clean, searchable table using Pandas.
+
+### 2. ATS Match Scoring & Analytics
+* **ATS Score Calculation**: Compares the parsed resume data directly against a Job Description to generate a percentage match score.
+* **Skill Gap Analysis**: Shows matching and missing skills to help candidates identify gaps.
+* **Tailored Suggestions**: Provides structured advice on how to improve the resume relative to the role.
+
+---
 
 ## 🛠️ Tech Stack
+* **Frontend UI**: [Streamlit](https://streamlit.io/) (Python-based dashboard framework)
+* **LLM Engine**: [Google Generative AI SDK](https://aistudio.google.com/) (Gemini 2.5 Flash)
+* **PDF Reader**: `PyPDF2`
+* **Data Processing**: `Pandas`
 
-* **Language:** Python
-* **Frontend Framework:** Streamlit
-* **AI Model:** Google Generative AI (Gemini 2.5 Flash)
-* **Data Processing:** Pandas, JSON, Regular Expressions (Regex)
-* **PDF Processing:** PyPDF2
+---
 
-## ⚙️ Installation & Setup
+## 💻 How to Run Locally
 
-To run this project locally, follow these steps:
+### 1. Clone the Repository
+```bash
+git clone https://github.com/chandan-ideastih/Smart-Resume-Parser-Analyser-and-Builder-Dipesh-Jaluria.git
+cd Smart-Resume-Parser-Analyser-and-Builder-Dipesh-Jaluria
+```
 
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git)
-   cd YOUR_REPOSITORY_NAME
+### 2. Set Up Virtual Environment (Optional but Recommended)
+```bash
+python -m venv venv
+venv\Scripts\activate  # On Windows PowerShell
+# source venv/bin/activate  # On macOS/Linux
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Run the Streamlit App
+```bash
+streamlit run app.py
+```
+
+### 5. Setup your API Key
+* Open the app in your browser (usually `http://localhost:8501`).
+* Go to the sidebar and input your **Google Gemini API Key**.
+* Get a key for free at [Google AI Studio](https://aistudio.google.com/).
+
+---
+
+## 📂 Project Structure
+```
+├── app.py              # Main application source code
+├── requirements.txt    # Project dependencies
+├── .gitignore          # Git exclusion rules (ignores venv, .env, pycache)
+└── Readme.md           # Project documentation
+```

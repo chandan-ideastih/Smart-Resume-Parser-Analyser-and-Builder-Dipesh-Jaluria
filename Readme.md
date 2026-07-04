@@ -36,36 +36,3 @@ An AI-powered web application that extracts key information from resume PDFs and
 ```bash
 git clone https://github.com/chandan-ideastih/Smart-Resume-Parser-Analyser-and-Builder-Dipesh-Jaluria.git
 cd Smart-Resume-Parser-Analyser-and-Builder-Dipesh-Jaluria
-```
-
-### 2. Set Up Virtual Environment (Optional but Recommended)
-```bash
-python -m venv venv
-venv\Scripts\activate  # On Windows PowerShell
-# source venv/bin/activate  # On macOS/Linux
-```
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run the Streamlit App
-```bash
-streamlit run app.py
-```
-
-### 5. Setup your API Key
-* Open the app in your browser (usually `http://localhost:8501`).
-* Go to the sidebar and input your **Google Gemini API Key**.
-* Get a key for free at [Google AI Studio](https://aistudio.google.com/).
-
----
-
-## 📂 Project Structure
-```
-├── app.py              # Main application source code
-├── requirements.txt    # Project dependencies
-├── .gitignore          # Git exclusion rules (ignores venv, .env, pycache)
-└── Readme.md           # Project documentation
-```

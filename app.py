@@ -4,6 +4,7 @@ import google.generativeai as genai
 import json
 import pandas as pd
 import re
+from fpdf import FPDF
 
 # ==========================================
 # CONFIGURATION & PAGE SETUP
@@ -107,6 +108,92 @@ def analyze_resume(resume_json, job_desc):
         st.error("Failed to generate analysis.")
         return None
 
+def generate_pdf(resume_data):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Helper to sanitize strings to Latin-1 for standard FPDF fonts
+    def clean(text):
+        if not text:
+            return ""
+        text = text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
+        text = text.replace("–", "-").replace("—", "-").replace("•", "*")
+        return text.encode("latin-1", "ignore").decode("latin-1")
+    
+    # 1. Header (Name & Contact)
+    personal = resume_data.get("personal_info", {})
+    name = clean(personal.get("name", "Name"))
+    email = clean(personal.get("email", ""))
+    phone = clean(personal.get("phone", ""))
+    
+    pdf.set_font("helvetica", "B", 24)
+    pdf.cell(0, 10, name, new_x="LMARGIN", new_y="NEXT", align="C")
+    
+    pdf.set_font("helvetica", "", 10)
+    contact_info = f"Email: {email}  |  Phone: {phone}"
+    pdf.cell(0, 10, contact_info, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(5)
+    
+    # Draw a line
+    pdf.set_draw_color(100, 100, 100)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+    
+    # Helper to add section headers
+    def add_section_header(title):
+        pdf.set_font("helvetica", "B", 14)
+        pdf.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
+        # Underline
+        pdf.set_draw_color(150, 150, 150)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(3)
+        
+    # 2. Education
+    education = resume_data.get("education", [])
+    if education:
+        add_section_header("EDUCATION")
+        for edu in education:
+            degree = clean(edu.get("degree", ""))
+            inst = clean(edu.get("institution", ""))
+            year = clean(edu.get("year", ""))
+            
+            pdf.set_font("helvetica", "B", 11)
+            pdf.cell(0, 6, f"{degree}", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("helvetica", "I", 10)
+            pdf.cell(0, 5, f"{inst} ({year})", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+        pdf.ln(3)
+        
+    # 3. Experience
+    experience = resume_data.get("experience", [])
+    if experience:
+        add_section_header("EXPERIENCE")
+        for exp in experience:
+            role = clean(exp.get("role", ""))
+            company = clean(exp.get("company", ""))
+            duration = clean(exp.get("duration", ""))
+            desc = clean(exp.get("description", ""))
+            
+            pdf.set_font("helvetica", "B", 11)
+            pdf.cell(0, 6, f"{role}", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("helvetica", "I", 10)
+            pdf.cell(0, 5, f"{company}  |  {duration}", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("helvetica", "", 10)
+            pdf.multi_cell(0, 5, desc)
+            pdf.ln(3)
+        pdf.ln(3)
+        
+    # 4. Skills
+    skills = resume_data.get("skills", [])
+    if skills:
+        add_section_header("SKILLS")
+        pdf.set_font("helvetica", "", 10)
+        skills_str = ", ".join(skills) if isinstance(skills, list) else skills
+        pdf.multi_cell(0, 5, clean(skills_str))
+        
+    return pdf.output()
+
 # ==========================================
 # MAIN APP UI
 # ==========================================
@@ -118,7 +205,7 @@ if not api_key:
 genai.configure(api_key=api_key)
 
 # Create Tabs for the Workflow
-tab1, tab2 = st.tabs(["1. Parse Resume", "2. Analyze vs Job Description"])
+tab1, tab2, tab3 = st.tabs(["1. Parse Resume", "2. Analyze vs Job Description", "3. Resume Builder"])
 
 with tab1:
     st.header("Step 1: Upload & Extract")
@@ -190,3 +277,94 @@ with tab2:
                         st.divider()
                         st.subheader("💡 Suggestions for the Builder Phase")
                         st.info(analysis.get('recommendations', 'No recommendations provided.'))
+
+with tab3:
+    st.header("Step 3: Resume Builder")
+    
+    if 'parsed_resume' not in st.session_state:
+        st.info("Please upload and parse a resume in Step 1 first.")
+    else:
+        # Load data from session state
+        resume_data = st.session_state['parsed_resume']
+        
+        st.subheader("Edit Resume Details")
+        
+        # 1. Personal Info
+        personal = resume_data.get("personal_info", {})
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            name = st.text_input("Full Name", value=personal.get("name", ""))
+        with col2:
+            email = st.text_input("Email Address", value=personal.get("email", ""))
+        with col3:
+            phone = st.text_input("Phone Number", value=personal.get("phone", ""))
+            
+        # Update personal info in our local builder copy
+        builder_data = {
+            "personal_info": {"name": name, "email": email, "phone": phone}
+        }
+        
+        # 2. Education
+        st.write("---")
+        st.subheader("Education")
+        education = resume_data.get("education", [])
+        builder_edu = []
+        for i, edu in enumerate(education):
+            st.markdown(f"**Degree #{i+1}**")
+            col_deg, col_inst, col_yr = st.columns([2, 2, 1])
+            with col_deg:
+                deg = st.text_input(f"Degree", value=edu.get("degree", ""), key=f"edu_deg_{i}")
+            with col_inst:
+                inst = st.text_input(f"Institution", value=edu.get("institution", ""), key=f"edu_inst_{i}")
+            with col_yr:
+                yr = st.text_input(f"Year", value=edu.get("year", ""), key=f"edu_yr_{i}")
+            builder_edu.append({"degree": deg, "institution": inst, "year": yr})
+        builder_data["education"] = builder_edu
+        
+        # 3. Experience
+        st.write("---")
+        st.subheader("Experience")
+        experience = resume_data.get("experience", [])
+        builder_exp = []
+        for i, exp in enumerate(experience):
+            st.markdown(f"**Job #{i+1}**")
+            col_role, col_comp, col_dur = st.columns([2, 2, 1])
+            with col_role:
+                role = st.text_input(f"Role", value=exp.get("role", ""), key=f"exp_role_{i}")
+            with col_comp:
+                comp = st.text_input(f"Company", value=exp.get("company", ""), key=f"exp_comp_{i}")
+            with col_dur:
+                dur = st.text_input(f"Duration", value=exp.get("duration", ""), key=f"exp_dur_{i}")
+            desc = st.text_area(f"Description / Bullet Points", value=exp.get("description", ""), key=f"exp_desc_{i}", height=100)
+            builder_exp.append({"role": role, "company": comp, "duration": dur, "description": desc})
+        builder_data["experience"] = builder_exp
+        
+        # 4. Skills
+        st.write("---")
+        st.subheader("Skills")
+        skills_list = resume_data.get("skills", [])
+        if isinstance(skills_list, list):
+            skills_str = ", ".join(skills_list)
+        else:
+            skills_str = str(skills_list)
+        
+        skills_input = st.text_area("Skills (comma-separated)", value=skills_str, height=80)
+        builder_data["skills"] = [s.strip() for s in skills_input.split(",") if s.strip()]
+        
+        # Generate & Download Button
+        st.write("---")
+        st.subheader("Export Resume")
+        
+        if st.button("Preview / Update PDF", type="secondary"):
+            st.success("Resume preview updated! Click download button below to export.")
+            
+        try:
+            pdf_bytes = generate_pdf(builder_data)
+            st.download_button(
+                label="📥 Download Resume PDF",
+                data=pdf_bytes,
+                file_name=f"{name.replace(' ', '_')}_Resume.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"Error generating PDF: {e}")

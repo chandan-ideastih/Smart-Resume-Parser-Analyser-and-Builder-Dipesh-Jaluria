@@ -268,9 +268,7 @@ def display_profile_card(parsed_data):
     skills = parsed_data.get("skills", []) or []
     skills_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px;">'
     for skill in skills:
-        skills_html += f"""
-        <span style="background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #1e40af; border: 1px solid #bfdbfe; font-weight: 600; font-size: 0.85rem; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">{skill}</span>
-        """
+        skills_html += f'<span style="background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #1e40af; border: 1px solid #bfdbfe; font-weight: 600; font-size: 0.85rem; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">{skill}</span>'
     skills_html += '</div>'
     st.markdown(skills_html, unsafe_allow_html=True)
 

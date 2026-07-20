@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import re
 from fpdf import FPDF
+import sqlite3
 
 # ==========================================
 # CONFIGURATION & PAGE SETUP
@@ -273,6 +274,96 @@ def display_profile_card(parsed_data):
     skills_html += '</div>'
     st.markdown(skills_html, unsafe_allow_html=True)
 
+def init_db():
+    conn = sqlite3.connect("resume_data.db")
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS candidates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            email TEXT,
+            phone TEXT,
+            skills TEXT,
+            education TEXT,
+            experience TEXT,
+            raw_json TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS evaluations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            candidate_id INTEGER,
+            job_description TEXT,
+            match_score INTEGER,
+            matching_skills TEXT,
+            missing_skills TEXT,
+            recommendations TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (candidate_id) REFERENCES candidates (id)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def save_candidate(parsed_data):
+    try:
+        conn = sqlite3.connect("resume_data.db")
+        c = conn.cursor()
+        
+        personal = parsed_data.get("personal_info", {}) or {}
+        name = personal.get("name", "Name Not Found")
+        email = personal.get("email", "Email Not Found")
+        phone = personal.get("phone", "Phone Not Found")
+        
+        skills = parsed_data.get("skills", []) or []
+        skills_str = ", ".join(skills) if isinstance(skills, list) else str(skills)
+        
+        edu_str = json.dumps(parsed_data.get("education", []))
+        exp_str = json.dumps(parsed_data.get("experience", []))
+        raw_json_str = json.dumps(parsed_data)
+        
+        c.execute("""
+            INSERT INTO candidates (name, email, phone, skills, education, experience, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (name, email, phone, skills_str, edu_str, exp_str, raw_json_str))
+        
+        candidate_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        return candidate_id
+    except Exception as e:
+        st.error(f"Error saving to database: {e}")
+        return None
+
+def save_evaluation(candidate_id, job_description, analysis):
+    try:
+        conn = sqlite3.connect("resume_data.db")
+        c = conn.cursor()
+        
+        score = analysis.get("match_score_percentage", 0)
+        
+        matching = analysis.get("matching_skills", []) or []
+        matching_str = ", ".join(matching) if isinstance(matching, list) else str(matching)
+        
+        missing = analysis.get("missing_skills", []) or []
+        missing_str = ", ".join(missing) if isinstance(missing, list) else str(missing)
+        
+        recs = analysis.get("recommendations", "")
+        
+        c.execute("""
+            INSERT INTO evaluations (candidate_id, job_description, match_score, matching_skills, missing_skills, recommendations)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (candidate_id, job_description, score, matching_str, missing_str, recs))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        st.error(f"Error saving evaluation: {e}")
+
+# Initialize Database at startup
+init_db()
+
 # ==========================================
 # MAIN APP UI
 # ==========================================
@@ -284,7 +375,7 @@ if not api_key:
 genai.configure(api_key=api_key)
 
 # Create Tabs for the Workflow
-tab1, tab2, tab3 = st.tabs(["1. Parse Resume", "2. Analyze vs Job Description", "3. Resume Builder"])
+tab1, tab2, tab3, tab4 = st.tabs(["1. Parse Resume", "2. Analyze vs Job Description", "3. Resume Builder", "4. Recruiter Dashboard"])
 
 with tab1:
     st.header("Step 1: Upload & Extract")
@@ -300,6 +391,10 @@ with tab1:
                     
                     if parsed_data:
                         st.success("Successfully Parsed Resume!")
+                        
+                        # Save candidate to SQLite database
+                        candidate_id = save_candidate(parsed_data)
+                        st.session_state['candidate_id'] = candidate_id
                         
                         # Store in session state for the next tab
                         st.session_state['parsed_resume'] = parsed_data
@@ -328,6 +423,10 @@ with tab2:
                     
                     if analysis:
                         st.subheader("Analysis Results")
+                        
+                        # Save evaluation to SQLite database if candidate_id is known
+                        if 'candidate_id' in st.session_state:
+                            save_evaluation(st.session_state['candidate_id'], job_description, analysis)
                         
                         score = analysis.get('match_score_percentage', 0)
                         
@@ -444,3 +543,82 @@ with tab3:
             )
         except Exception as e:
             st.error(f"Error generating PDF: {e}")
+
+with tab4:
+    st.header("Step 4: Recruiter Dashboard")
+    
+    # Read all candidates from the database
+    try:
+        conn = sqlite3.connect("resume_data.db")
+        candidates_df = pd.read_sql_query("SELECT id, name, email, phone, skills, created_at FROM candidates ORDER BY id DESC", conn)
+        conn.close()
+    except Exception as e:
+        st.error(f"Error loading database: {e}")
+        candidates_df = pd.DataFrame()
+        
+    if candidates_df.empty:
+        st.info("No candidates saved in the database yet. Go to Step 1 to parse a resume.")
+    else:
+        st.subheader("Saved Candidates")
+        # Search box
+        search_query = st.text_input("🔍 Search Candidates by Name, Email, or Skills:")
+        if search_query:
+            filtered_df = candidates_df[
+                candidates_df['name'].str.contains(search_query, case=False, na=False) |
+                candidates_df['email'].str.contains(search_query, case=False, na=False) |
+                candidates_df['skills'].str.contains(search_query, case=False, na=False)
+            ]
+        else:
+            filtered_df = candidates_df
+            
+        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+        
+        # Select Candidate to View
+        candidate_ids = filtered_df['id'].tolist()
+        candidate_names = filtered_df['name'].tolist()
+        options = {candidate_ids[i]: f"{candidate_names[i]} (ID: {candidate_ids[i]})" for i in range(len(candidate_ids))}
+        
+        selected_id = st.selectbox(
+            "Select a candidate to view full profile and past evaluations:",
+            options=list(options.keys()),
+            format_func=lambda x: options[x]
+        )
+        
+        if selected_id:
+            # Load candidate details
+            conn = sqlite3.connect("resume_data.db")
+            c = conn.cursor()
+            c.execute("SELECT raw_json FROM candidates WHERE id = ?", (selected_id,))
+            raw_json = c.fetchone()[0]
+            candidate_data = json.loads(raw_json)
+            
+            # Load past evaluations
+            eval_df = pd.read_sql_query("""
+                SELECT created_at as 'Date', match_score as 'Match Score (%)', matching_skills as 'Matching Skills', 
+                       missing_skills as 'Missing Skills', recommendations as 'Recommendations'
+                FROM evaluations WHERE candidate_id = ? ORDER BY id DESC
+            """, conn, params=(selected_id,))
+            conn.close()
+            
+            # Display Candidate Details
+            st.write("---")
+            st.subheader(f"Candidate Profile: {candidate_data.get('personal_info', {}).get('name', '')}")
+            display_profile_card(candidate_data)
+            
+            # Display Evaluations History
+            st.write("---")
+            st.subheader("📈 Past ATS Match Evaluations")
+            if eval_df.empty:
+                st.info("No evaluations run for this candidate yet. Go to Step 2 to analyze against a Job Description.")
+            else:
+                for idx, row in eval_df.iterrows():
+                    with st.expander(f"Match Score: {row['Match Score (%)']}% | Date: {row['Date']}"):
+                        st.metric(label="Match Score", value=f"{row['Match Score (%)']}%")
+                        col_m, col_mi = st.columns(2)
+                        with col_m:
+                            st.success("✅ Matching Skills")
+                            st.write(row['Matching Skills'])
+                        with col_mi:
+                            st.error("❌ Missing Skills")
+                            st.write(row['Missing Skills'])
+                        st.info(f"💡 Recommendations:\n{row['Recommendations']}")

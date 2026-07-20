@@ -194,6 +194,85 @@ def generate_pdf(resume_data):
         
     return pdf.output()
 
+def display_profile_card(parsed_data):
+    # Personal Info
+    personal = parsed_data.get("personal_info", {}) or {}
+    name = personal.get("name", "Name Not Found")
+    email = personal.get("email", "Email Not Found")
+    phone = personal.get("phone", "Phone Not Found")
+    
+    # Styled Profile Header Card
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 25px; border-radius: 15px; color: white; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1)">
+        <h1 style="margin: 0; color: white; font-family: 'Inter', sans-serif; font-size: 2.2rem; font-weight: 700;">{name}</h1>
+        <p style="margin: 8px 0 0 0; font-size: 1.1rem; opacity: 0.9;">
+            📧 {email} &nbsp;&nbsp;|&nbsp;&nbsp; 📞 {phone}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Grid Layout for Education and Experience
+    col_edu, col_exp = st.columns([1, 2])
+    
+    with col_edu:
+        st.subheader("🎓 Education")
+        education = parsed_data.get("education", []) or []
+        for edu in education:
+            degree = edu.get("degree", "Degree")
+            inst = edu.get("institution", "Institution")
+            year = edu.get("year", "Year")
+            st.markdown(f"""
+            <div style="background-color: #f3f4f6; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 0 8px 8px 0; margin-bottom: 12px;">
+                <h5 style="margin: 0; font-weight: 600; color: #1f2937;">{degree}</h5>
+                <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #4b5563;">{inst}</p>
+                <p style="margin: 2px 0 0 0; font-size: 0.85rem; font-weight: 500; color: #9ca3af;">🗓️ {year}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+    with col_exp:
+        st.subheader("💼 Work Experience")
+        experience = parsed_data.get("experience", []) or []
+        for exp in experience:
+            role = exp.get("role", "Role")
+            company = exp.get("company", "Company")
+            duration = exp.get("duration", "Duration")
+            desc = exp.get("description", "")
+            
+            # Format description bullets if they exist
+            desc_html = ""
+            if desc:
+                bullets = [b.strip() for b in re.split(r'[\n•\-\*]', desc) if b.strip()]
+                if bullets:
+                    desc_html = "<ul style='margin: 6px 0 0 0; padding-left: 20px; font-size: 0.9rem; color: #4b5563; line-height: 1.4;'>"
+                    for b in bullets:
+                        desc_html += f"<li style='margin-bottom: 4px;'>{b}</li>"
+                    desc_html += "</ul>"
+                else:
+                    desc_html = f"<p style='margin: 6px 0 0 0; font-size: 0.9rem; color: #4b5563; line-height: 1.4;'>{desc}</p>"
+                    
+            st.markdown(f"""
+            <div style="background-color: #f9fafb; border-left: 4px solid #10b981; padding: 15px; border-radius: 0 8px 8px 0; margin-bottom: 15px; border: 1px solid #e5e7eb; border-top-right-radius: 8px; border-bottom-right-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+                    <h5 style="margin: 0; font-weight: 700; color: #111827;">{role}</h5>
+                    <span style="font-size: 0.8rem; font-weight: 600; color: #10b981; background-color: #ecfdf5; padding: 2px 8px; border-radius: 12px;">{duration}</span>
+                </div>
+                <p style="margin: 4px 0 0 0; font-size: 0.95rem; font-weight: 500; color: #4b5563;">🏢 {company}</p>
+                {desc_html}
+            </div>
+            """, unsafe_allow_html=True)
+            
+    # Skills section at the bottom as badges
+    st.write("---")
+    st.subheader("🛠️ Technical Skills")
+    skills = parsed_data.get("skills", []) or []
+    skills_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px;">'
+    for skill in skills:
+        skills_html += f"""
+        <span style="background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #1e40af; border: 1px solid #bfdbfe; font-weight: 600; font-size: 0.85rem; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">{skill}</span>
+        """
+    skills_html += '</div>'
+    st.markdown(skills_html, unsafe_allow_html=True)
+
 # ==========================================
 # MAIN APP UI
 # ==========================================
@@ -226,14 +305,11 @@ with tab1:
                         st.session_state['parsed_resume'] = parsed_data
                         
                         # Display Extracted Data
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.subheader("Extracted JSON Data")
+                        display_profile_card(parsed_data)
+                        
+                        st.write("")
+                        with st.expander("🔍 View Raw JSON Data"):
                             st.json(parsed_data)
-                        with col2:
-                            st.subheader("Skills Found")
-                            skills_df = pd.DataFrame(parsed_data.get('skills', []), columns=["Skills"])
-                            st.dataframe(skills_df, use_container_width=True)
 
 with tab2:
     st.header("Step 2: ATS Match Scoring")
